@@ -1,0 +1,48 @@
+trigger:
+- main
+
+pr:
+- main
+
+variables:
+  terraformVersion: '1.6.0'  # Set this to the Terraform version you need
+  azureSubscription: 'your-azure-subscription'  # Name of the Azure service connection in Azure DevOps
+  azureResourceGroup: 'your-resource-group'
+  azureLocation: 'australiaeast'
+  azureServicePrincipalId: $(azureServicePrincipalId)  # Define these in pipeline variables or Azure Key Vault
+  azureServicePrincipalKey: $(azureServicePrincipalKey)
+  azureSubscriptionId: $(azureSubscriptionId)
+  azureTenantId: $(azureTenantId)
+
+jobs:
+- job: Terraform
+  displayName: 'Run Terraform'
+  pool:
+    vmImage: 'ubuntu-latest'
+  
+  steps:
+  - script: |
+      curl -LO "https://releases.hashicorp.com/terraform/$(terraformVersion)/terraform_$(terraformVersion)_linux_amd64.zip"
+      unzip terraform_$(terraformVersion)_linux_amd64.zip
+      sudo mv terraform /usr/local/bin/
+      terraform version
+    displayName: 'Install Terraform'
+  
+  - checkout: self
+  
+  - script: |
+      terraform init
+    displayName: 'Terraform Init'
+  
+  - script: |
+      terraform plan -var "location=$(azureLocation)" -var "resource_group=$(azureResourceGroup)"
+    displayName: 'Terraform Plan'
+  
+  - script: |
+      terraform apply -var "location=$(azureLocation)" -var "resource_group=$(azureResourceGroup)" -auto-approve
+    displayName: 'Terraform Apply'
+    env:
+      ARM_CLIENT_ID: $(azureServicePrincipalId)
+      ARM_CLIENT_SECRET: $(azureServicePrincipalKey)
+      ARM_SUBSCRIPTION_ID: $(azureSubscriptionId)
+      ARM_TENANT_ID: $(azureTenantId)
